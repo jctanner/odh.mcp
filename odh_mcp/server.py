@@ -158,5 +158,138 @@ async def shutdown_kernel() -> str:
     return "Kernel shut down."
 
 
+@mcp.tool()
+async def edit_cell_source(
+    path: Annotated[str, Field(description="Path to the .ipynb file on the workbench")],
+    cell_index: Annotated[int, Field(description="Zero-based index of the cell to edit")],
+    old_string: Annotated[str, Field(description="Exact string to find in the cell source")],
+    new_string: Annotated[str, Field(description="Replacement string")],
+    replace_all: Annotated[bool, Field(description="Replace all occurrences (default: first only)")] = False,
+) -> str:
+    """Find-and-replace within a single cell's source code."""
+    runner = _get_runner()
+    nb = runner.read_notebook(path)
+    cells = runner.get_cells()
+    if cell_index < 0 or cell_index >= len(cells):
+        return f"Cell index {cell_index} out of range (notebook has {len(cells)} cells)"
+
+    cell = cells[cell_index]
+    source = cell.get("source", "")
+    if isinstance(source, list):
+        source = "".join(source)
+
+    if not old_string:
+        return "old_string must not be empty"
+    count = source.count(old_string)
+    if count == 0:
+        return "old_string not found in cell source"
+    if count > 1 and not replace_all:
+        return f"old_string appears {count} times — set replace_all=True to replace all"
+
+    if replace_all:
+        new_source = source.replace(old_string, new_string)
+    else:
+        new_source = source.replace(old_string, new_string, 1)
+
+    cell["source"] = new_source
+    runner.save_notebook()
+    return f"Cell {cell_index} edited ({count} replacement{'s' if count > 1 else ''})"
+
+
+@mcp.tool()
+async def overwrite_cell_source(
+    path: Annotated[str, Field(description="Path to the .ipynb file on the workbench")],
+    cell_index: Annotated[int, Field(description="Zero-based index of the cell to overwrite")],
+    new_source: Annotated[str, Field(description="New source code for the cell")],
+) -> str:
+    """Replace a cell's entire source code."""
+    runner = _get_runner()
+    nb = runner.read_notebook(path)
+    cells = runner.get_cells()
+    if cell_index < 0 or cell_index >= len(cells):
+        return f"Cell index {cell_index} out of range (notebook has {len(cells)} cells)"
+
+    cells[cell_index]["source"] = new_source
+    runner.save_notebook()
+    return f"Cell {cell_index} overwritten"
+
+
+@mcp.tool()
+async def insert_cell(
+    path: Annotated[str, Field(description="Path to the .ipynb file on the workbench")],
+    cell_index: Annotated[int, Field(description="Position to insert at (-1 to append)")],
+    cell_type: Annotated[str, Field(description="Cell type: 'code' or 'markdown'")] = "code",
+    source: Annotated[str, Field(description="Source content for the new cell")] = "",
+) -> str:
+    """Insert a new cell at the given position in a notebook."""
+    runner = _get_runner()
+    nb = runner.read_notebook(path)
+    cells = runner.get_cells()
+
+    if cell_type not in ("code", "markdown"):
+        return f"Invalid cell_type '{cell_type}' — must be 'code' or 'markdown'"
+
+    actual_index = cell_index if cell_index != -1 else len(cells)
+    if actual_index < 0 or actual_index > len(cells):
+        return f"Cell index {cell_index} out of range (notebook has {len(cells)} cells)"
+
+    new_cell = {
+        "cell_type": cell_type,
+        "source": source,
+        "metadata": {},
+    }
+    if cell_type == "code":
+        new_cell["outputs"] = []
+        new_cell["execution_count"] = None
+
+    cells.insert(actual_index, new_cell)
+    runner.save_notebook()
+    return f"{cell_type} cell inserted at index {actual_index} (notebook now has {len(cells)} cells)"
+
+
+@mcp.tool()
+async def delete_cell(
+    path: Annotated[str, Field(description="Path to the .ipynb file on the workbench")],
+    cell_index: Annotated[int, Field(description="Zero-based index of the cell to delete")],
+) -> str:
+    """Delete a cell from a notebook by index."""
+    runner = _get_runner()
+    nb = runner.read_notebook(path)
+    cells = runner.get_cells()
+    if cell_index < 0 or cell_index >= len(cells):
+        return f"Cell index {cell_index} out of range (notebook has {len(cells)} cells)"
+
+    removed = cells.pop(cell_index)
+    ct = removed.get("cell_type", "unknown")
+    runner.save_notebook()
+    return f"{ct} cell at index {cell_index} deleted (notebook now has {len(cells)} cells)"
+
+
+@mcp.tool()
+async def move_cell(
+    path: Annotated[str, Field(description="Path to the .ipynb file on the workbench")],
+    source_index: Annotated[int, Field(description="Index of the cell to move")],
+    target_index: Annotated[int, Field(description="Destination index")],
+) -> str:
+    """Move a cell from one position to another within a notebook."""
+    runner = _get_runner()
+    nb = runner.read_notebook(path)
+    cells = runner.get_cells()
+    n = len(cells)
+
+    if source_index < 0 or source_index >= n:
+        return f"Source index {source_index} out of range (notebook has {n} cells)"
+    if target_index < 0 or target_index >= n:
+        return f"Target index {target_index} out of range (notebook has {n} cells)"
+    if source_index == target_index:
+        return f"Cell {source_index} is already at index {target_index}"
+
+    cell = cells.pop(source_index)
+    cells.insert(target_index, cell)
+    runner.save_notebook()
+    ct = cell.get("cell_type", "unknown")
+    return f"{ct} cell moved from index {source_index} to {target_index}"
+
+
 def main():
     mcp.run(transport="stdio")

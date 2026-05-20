@@ -84,6 +84,7 @@ class NotebookRunner:
             self._orig_sslopt = {}
         self._xsrf_token: str | None = None
         self._kernel: KernelClient | None = None
+        self._notebook: dict | None = None
         self._notebook_cells: list[dict] | None = None
         self._notebook_path: str | None = None
 
@@ -141,9 +142,20 @@ class NotebookRunner:
             nb = content
         if isinstance(nb, str):
             nb = json.loads(nb)
+        self._notebook = nb
         self._notebook_path = path
         self._notebook_cells = nb.get("cells", [])
         return nb
+
+    def save_notebook(self, path: str | None = None) -> None:
+        """Save the in-memory notebook back to the Jupyter server."""
+        if self._notebook is None:
+            raise RuntimeError("No notebook loaded — call read_notebook() first")
+        path = path or self._notebook_path
+        if not path:
+            raise RuntimeError("No notebook path — pass path or call read_notebook() first")
+        self._notebook["cells"] = self._notebook_cells
+        self.client.contents.save_notebook(path, self._notebook)
 
     def get_cells(self) -> list[dict]:
         """Return cells from the last read_notebook call."""
@@ -323,6 +335,7 @@ class NotebookRunner:
             except Exception as e:
                 logger.warning(f"Error stopping kernel: {e}")
             self._kernel = None
+        self._notebook = None
         self._notebook_cells = None
         self._notebook_path = None
 

@@ -47,6 +47,11 @@ Agent / Script
 | `execute_notebook` | Execute all code cells sequentially |
 | `execute_code` | Execute arbitrary Python code in the kernel |
 | `shutdown_kernel` | Stop the active kernel |
+| `edit_cell_source` | Find-and-replace within a cell's source |
+| `overwrite_cell_source` | Replace a cell's entire source |
+| `insert_cell` | Insert a new code or markdown cell at a given index |
+| `delete_cell` | Delete a cell by index |
+| `move_cell` | Move a cell from one position to another |
 
 ### Kubernetes / RHOAI tools (Phase 2 — planned)
 

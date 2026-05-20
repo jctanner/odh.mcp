@@ -1,8 +1,14 @@
 # odh-mcp
 
-MCP server for orchestrating RHOAI/Jupyter workbenches and model serving.
+MCP server for orchestrating the full RHOAI stack — workbenches, model serving, InferenceServices, S3 connections, and more — through a single unified interface.
 
-Agents connect to it for interactive notebook exploration; scripts use the same `NotebookRunner` class for CI automation. Works with any Jupyter server accessible via URL — on OpenShift, Kubernetes, or locally.
+Agents connect to it for interactive exploration; scripts use the same classes for CI automation. Works with any Jupyter server and Kubernetes cluster accessible via URL — on OpenShift, Kubernetes, or locally.
+
+## Why not jupyter-mcp-server?
+
+Datalayer's [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server) is a full-featured MCP server for Jupyter notebooks, but it's scoped to notebooks only. This project exists because we need a single MCP server that covers the full RHOAI platform: workbenches, model serving (ServingRuntimes, InferenceServices), S3 data connections, and eventually pipelines and model registry.
+
+The notebook tools here (Phase 1) are intentionally simpler — no three-backend abstraction (YDoc/file/WebSocket), no Jupyter extension mode — just a thin client pointed at a remote workbench URL. The real value is Phase 2+, where agents can deploy models, check InferenceService status, create connections, and run inference tests all through one server.
 
 ## Architecture
 
@@ -28,6 +34,8 @@ Agent / Script
 
 ## Tools
 
+### Notebook tools (Phase 1 — implemented)
+
 | Tool | Description |
 |------|-------------|
 | `list_notebooks` | List .ipynb files on the workbench |
@@ -39,6 +47,16 @@ Agent / Script
 | `execute_notebook` | Execute all code cells sequentially |
 | `execute_code` | Execute arbitrary Python code in the kernel |
 | `shutdown_kernel` | Stop the active kernel |
+
+### Kubernetes / RHOAI tools (Phase 2 — planned)
+
+| Tool | Description |
+|------|-------------|
+| `get_pod_status` | Check pod readiness in namespace |
+| `get_inferenceservice` | Get ISVC status and conditions |
+| `deploy_model` | Create ServingRuntime + InferenceService |
+| `test_inference` | Send prediction request to model endpoint |
+| `create_connection` | Create S3 data connection secret |
 
 ## Install
 
